@@ -19,4 +19,5 @@ class ECG_SEG_Dataset():
                         9: '.v4',
                         10: '.v5',
                         11: '.v6'}
-
+        header_suffix = '.hea'
+        signal_suffix = '.dat'
