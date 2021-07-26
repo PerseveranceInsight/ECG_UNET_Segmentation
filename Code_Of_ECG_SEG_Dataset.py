@@ -125,7 +125,7 @@ if __name__ == '__main__':
                             numpydataset_path,
                             part_ind)
 
-    def show_one_signal(numpydataset_path):
+    def show_one_signal(numpydataset_path, part_ind):
         import matplotlib.pyplot as plt
         leads_ann_suffix = {0: 'i',
                             1: 'ii',
@@ -139,7 +139,6 @@ if __name__ == '__main__':
                             9: 'v4',
                             10: 'v5',
                             11: 'v6'}
-        part_ind = 1
         part_path = numpydataset_path + str(part_ind)
 
         i_lead_ann_path = part_path + '_' + leads_ann_suffix[0] + '.npy'
@@ -154,14 +153,77 @@ if __name__ == '__main__':
         plt.figure()
         plt.plot(time, i_sig)
         plt.plot(time, i_lead_ann, 'rx')
-        # plt.plot(time[500:1001], i_sig[500:1001])
-        # plt.plot(time[500:1001], i_ann_sig[500:1001], 'rx')
+
+    def one_signal_preprocessing(numpydataset_path,
+                                 part_ind):
+        part_path = numpydataset_path + '{0:03d}'.format(part_ind)
+        lead_anns_path = part_path + '_lead_anns.npy'
+        signal_npy_path = part_path + '_sig.npy'
+        try:
+            lead_anns = np.load(lead_anns_path)
+            signal = np.load(signal_npy_path).transpose()
+        except:
+            print('Exception')
+            return None, None
+        sample_freq = 500
+        valid_sample_start = sample_freq * 2
+        valid_sample_end = sample_freq * 8
+        # print('Shape of lead_anns : {0}'.format(lead_anns.shape))
+        # print('Shape of signal: {0}'.format(signal.shape))
+        lead_anns = lead_anns[:, valid_sample_start:valid_sample_end]
+        signal = signal[:, valid_sample_start:valid_sample_end]
+        # print('Shape of lead_anns : {0}'.format(lead_anns.shape))
+        # print('Shape of signal: {0}'.format(signal.shape))
+        return lead_anns, signal
+
+    def signal_preprocessing(numpydataset_path,
+                             numpydataset_preprocess_path):
+        lead_anns_con = []
+        signals_con = []
+
+        for part_ind in range(1, 201):
+            lead_anns, signals = one_signal_preprocessing(numpydataset_path,
+                                                          part_ind)
+            if lead_anns is None:
+                print('lead_anns and signals is None {0}'.format(part_ind))
+            else:
+                lead_anns_con.append(lead_anns)
+                signals_con.append(signals)
+
+        lead_anns_con = np.asarray(lead_anns_con)
+        signals_con = np.asarray(signals_con)
+        # print('Shape of lead_anns_con : {0} {1}'.format(lead_anns_con.shape[0] * lead_anns_con.shape[1], lead_anns_con.shape[2]))
+        # print('Shape of signals_con : {0}'.format(signals_con.shape))
+        lead_anns_con = lead_anns_con.reshape(-1, lead_anns_con.shape[2])
+        signals_con = signals_con.reshape(-1, signals_con.shape[2])
+
+        # print('Shape of lead_anns_con : {0}'.format(lead_anns_con.shape))
+        # print('Shape of signals_con : {0}'.format(signals_con.shape))
+        # print('numpydataset_preprocess_path : {0}'.format(numpydataset_preprocess_path))
+        lead_anns_con_path = numpydataset_preprocess_path + 'lead_anns_con.npy'
+        signals_con_path = numpydataset_preprocess_path + 'signals_con.npy'
+        np.save(lead_anns_con_path, lead_anns_con)
+        np.save(signals_con_path, signals_con)
+
     
-    
-    # load_one_signal(dataset_path = './lu_dataset/data/',
-    #                 numpydataset_path = './lu_dataset_numpy/',
-    #                 part_ind = 9)
-    load_signal(dataset_path = './lu_dataset/data/',
-                numpydataset_path = './lu_dataset_numpy/')
-    # show_one_signal(numpydataset_path = './lu_dataset_numpy/')
-    # ecg_dataset = ECG_SEG_Dataset(dataset_path = './lu_dataset/data/')
+    if len(sys.argv) <= 5:
+        if len(sys.argv) == 5:
+            if sys.argv[1] == 'load_one_signal':
+                load_one_signal(dataset_path = sys.argv[2],
+                                numpydataset_path = sys.argv[3],
+                                part_ind = int(sys.argv[4]))
+        elif len(sys.argv) == 4:
+            if sys.argv[1] == 'load_signal':
+                load_signal(dataset_path = sys.argv[2],
+                            numpydataset_path = sys.argv[3])
+            elif sys.argv[1] == 'show_one_signal':
+                show_one_signal(numpydataset_path = sys.argv[2],
+                                part_ind = int(sys.argv[3]))
+            elif sys.argv[1] == 'one_signal_preprocessing':
+                one_signal_preprocessing(numpydataset_path = sys.argv[2],
+                                         part_ind = int(sys.argv[3]))
+            elif sys.argv[1] == 'signal_preprocessing':         
+                signal_preprocessing(numpydataset_path = sys.argv[2],
+                                     numpydataset_preprocess_path = sys.argv[3])
+        else:
+            ecg_dataset = ECG_SEG_Dataset(dataset_path = './lu_dataset/data/')
