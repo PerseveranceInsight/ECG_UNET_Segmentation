@@ -254,4 +254,17 @@ if __name__ == '__main__':
         elif len(sys.argv) == 2:
             ecg_dataset = ECG_SEG_Dataset(preprocess_dataset_path=sys.argv[1])
             sig, lead_ann = ecg_dataset.__getitem__(index = 1)
-            print(ecg_dataset.__len__())
+            sig_npy = sig.numpy()
+            lead_ann_npy = lead_ann.numpy()
+        #     np.save('./sig_npy.npy', sig_npy)
+        #     np.save('./lead_ann.npy', lead_ann_npy)
+        # else:
+        #     import matplotlib.pyplot as plt
+        #     sig_npy = np.load('./sig_npy.npy')
+        #     lead_ann_npy = np.load('./lead_ann.npy')
+        #     time  = np.arange(sig_npy.shape[0])
+
+
+        #     plt.figure()
+        #     plt.plot(time, sig_npy)
+        #     plt.plot(time, lead_ann_npy, 'rx')
