@@ -269,6 +269,7 @@ if __name__ == '__main__':
                                           mode = 'valid')
             sig, lead_ann = ecg_dataset.__getitem__(index = 1)
             print('ecg_dataset : {0}'.format(ecg_dataset.__len__()))
+            print('Shape of sig : {0}'.format(sig.size()))
         #     sig_npy = sig.numpy()
         #     lead_ann_npy = lead_ann.numpy()
         #     np.save('./sig_npy.npy', sig_npy)
