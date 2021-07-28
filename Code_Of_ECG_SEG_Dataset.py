@@ -19,23 +19,36 @@ class ECG_SEG_Dataset(Dataset):
         # print('Shape of signals : {0}'.format(signals.shape))
         # print('Shape of lead_cons : {0}'.format(lead_cons.shape))
         num_sample = signals.shape[0]
+
+        shuffle_id = np.arange(num_sample)
+        np.random.shuffle(shuffle_id)
+        signals = signals[shuffle_id, :]
+        lead_cons = lead_cons[shuffle_id, :]
+
+        if mode == 'test':
+            mode_id = np.zeros((num_sample), dtype=bool)
+            mode_id[9::10] = 1
+        else:
+            mode_id = np.ones((num_sample), dtype=bool)
+            mode_id[9::10] = 0
+
+        signals = signals[mode_id, :]
+        lead_cons = lead_cons[mode_id, :]
+        
+        num_sample = signals.shape[0]
         if mode == 'train':
             mode_id = np.ones((num_sample), dtype=bool)
             mode_id[9::10] = 0
-        else:
+            signals = signals[mode_id, :]
+            lead_cons = lead_cons[mode_id, :]
+            num_sample = signals.shape[0]
+        elif mode == 'valid':
             mode_id = np.zeros((num_sample), dtype=bool)
             mode_id[9::10] = 1
-        signals = signals[mode_id, :]
-        lead_cons = lead_cons[mode_id, :]
-        num_sample = signals.shape[0]
-        shuffle_id = np.arange(num_sample)
-        np.random.shuffle(shuffle_id)
-        # print('mode_id : {0}'.format(mode_id))
-        # print('Shape of signals : {0}'.format(signals.shape))
-        # print('Shape of lead_cons : {0}'.format(lead_cons.shape))
-        # print('shuffle_id : {0}'.format(shuffle_id))
-        signals = signals[shuffle_id, :]
-        lead_cons = lead_cons[shuffle_id, :]
+            signals = signals[mode_id, :]
+            lead_cons = lead_cons[mode_id, :]
+            num_sample = signals.shape[0]
+
         self.signals = torch.FloatTensor(signals)
         self.lead_cons = torch.LongTensor(lead_cons)
 
@@ -252,10 +265,12 @@ if __name__ == '__main__':
                 signal_preprocessing(numpydataset_path = sys.argv[2],
                                      numpydataset_preprocess_path = sys.argv[3])
         elif len(sys.argv) == 2:
-            ecg_dataset = ECG_SEG_Dataset(preprocess_dataset_path=sys.argv[1])
+            ecg_dataset = ECG_SEG_Dataset(preprocess_dataset_path=sys.argv[1],
+                                          mode = 'valid')
             sig, lead_ann = ecg_dataset.__getitem__(index = 1)
-            sig_npy = sig.numpy()
-            lead_ann_npy = lead_ann.numpy()
+            print('ecg_dataset : {0}'.format(ecg_dataset.__len__()))
+        #     sig_npy = sig.numpy()
+        #     lead_ann_npy = lead_ann.numpy()
         #     np.save('./sig_npy.npy', sig_npy)
         #     np.save('./lead_ann.npy', lead_ann_npy)
         # else:
