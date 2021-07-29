@@ -49,18 +49,21 @@ class unet_1d_conv_group(nn.Module):
         return self.conv1d_block2(middle)
 
 class unet_1d_model(nn.Module):
-    def __init__(self, conv_group_parameters, pool_parameters, deconv_group_parameters):
+    def __init__(self, encoder_parameters, 
+                       pool_parameters, 
+                       decoder_parameters,
+                       tran_conv_parameters):
         super(unet_1d_model, self).__init__()
-        self.unet_1d_conv_group1 = unet_1d_conv_group(group_parameters = conv_group_parameters, 
-                                                      group_idx = 0)
-        self.unet_1d_conv_group2 = unet_1d_conv_group(group_parameters = conv_group_parameters,
-                                                      group_idx = 1)
-        self.unet_1d_conv_group3 = unet_1d_conv_group(group_parameters = conv_group_parameters,
-                                                      group_idx = 2)
-        self.unet_1d_conv_group4 = unet_1d_conv_group(group_parameters = conv_group_parameters,
-                                                      group_idx = 3)
-        self.unet_1d_conv_group5 = unet_1d_conv_group(group_parameters = conv_group_parameters,
-                                                      group_idx = 4)
+        self.unet_encoder1 = unet_1d_conv_group(group_parameters = encoder_parameters,
+                                                group_idx = 0)
+        self.unet_encoder2 = unet_1d_conv_group(group_parameters = encoder_parameters,
+                                                group_idx = 1)
+        self.unet_encoder3 = unet_1d_conv_group(group_parameters = encoder_parameters,
+                                                group_idx = 2)
+        self.unet_encoder4 = unet_1d_conv_group(group_parameters = encoder_parameters,
+                                                group_idx = 3)
+        self.unet_encoder5 = unet_1d_conv_group(group_parameters = encoder_parameters,
+                                                group_idx = 4)
         
         self.max_pool1d_1 = nn.MaxPool1d(kernel_size = pool_parameters['kernel_size'],
                                          stride = pool_parameters['stride'],
@@ -74,38 +77,100 @@ class unet_1d_model(nn.Module):
         self.max_pool1d_4 = nn.MaxPool1d(kernel_size = pool_parameters['kernel_size'],
                                          stride = pool_parameters['stride'],
                                          padding = pool_parameters['padding'])
+        self.tran_conv1 = nn.ConvTranspose1d(in_channels = tran_conv_parameters['input_channel'][0],
+                                             out_channels = tran_conv_parameters['output_channel'][0],
+                                             kernel_size = tran_conv_parameters['kernel_size'],
+                                             stride = tran_conv_parameters['stride'],
+                                             padding = tran_conv_parameters['padding'])
+        self.tran_conv2 = nn.ConvTranspose1d(in_channels = tran_conv_parameters['input_channel'][1],
+                                             out_channels = tran_conv_parameters['output_channel'][1],
+                                             kernel_size = tran_conv_parameters['kernel_size'],
+                                             stride = tran_conv_parameters['stride'],
+                                             padding = tran_conv_parameters['padding'])
+        self.tran_conv3 = nn.ConvTranspose1d(in_channels = tran_conv_parameters['input_channel'][2],
+                                             out_channels = tran_conv_parameters['output_channel'][2],
+                                             kernel_size = tran_conv_parameters['kernel_size'],
+                                             stride = tran_conv_parameters['stride'],
+                                             padding = tran_conv_parameters['padding'])
+        self.tran_conv4 = nn.ConvTranspose1d(in_channels = tran_conv_parameters['input_channel'][3],
+                                             out_channels = tran_conv_parameters['output_channel'][3],
+                                             kernel_size = tran_conv_parameters['kernel_size'],
+                                             stride = tran_conv_parameters['stride'],
+                                             padding = tran_conv_parameters['padding'])
+
+        self.unet_decoder1 = unet_1d_conv_group(group_parameters = decoder_parameters,
+                                                group_idx = 0)
+        self.unet_decoder2 = unet_1d_conv_group(group_parameters = decoder_parameters,
+                                                group_idx = 1)
+        self.unet_decoder3 = unet_1d_conv_group(group_parameters = decoder_parameters,
+                                                group_idx = 2)
+        self.unet_decoder4 = unet_1d_conv_group(group_parameters = decoder_parameters,
+                                                group_idx = 3)
 
     
     def forward(self, input):
-        group_1_out = self.unet_1d_conv_group1(input)
-        pool_1_out = self.max_pool1d_1(group_1_out)
-        group_2_out = self.unet_1d_conv_group2(pool_1_out)
-        pool_2_out = self.max_pool1d_2(group_2_out)
-        group_3_out = self.unet_1d_conv_group3(pool_2_out)
-        pool_3_out = self.max_pool1d_3(group_3_out)
-        group_4_out = self.unet_1d_conv_group4(pool_3_out)
-        pool_4_out = self.max_pool1d_4(group_4_out)
-        group_5_out = self.unet_1d_conv_group5(pool_4_out)
-        return group_5_out
+        encode_1_out = self.unet_encoder1(input)
+        pool_1_out = self.max_pool1d_1(encode_1_out)
+        encode_2_out = self.unet_encoder2(pool_1_out)
+        pool_2_out = self.max_pool1d_2(encode_2_out)
+        encode_3_out = self.unet_encoder3(pool_2_out)
+        pool_3_out = self.max_pool1d_3(encode_3_out)
+        encode_4_out = self.unet_encoder4(pool_3_out)
+        pool_4_out = self.max_pool1d_4(encode_4_out)
+        encode_5_out = self.unet_encoder5(pool_4_out)
+
+        up_conv_1_out = self.tran_conv1(encode_5_out)
+
+        decoder1_in = torch.cat((encode_4_out, up_conv_1_out), dim = 1) 
+        decoder1_out = self.unet_decoder1(decoder1_in) 
+
+        up_conv_2_out = self.tran_conv2(decoder1_out)
+        
+        decoder2_in = torch.cat((encode_3_out, up_conv_2_out), dim = 1)
+        decoder2_out = self.unet_decoder2(decoder2_in)
+
+        up_conv_3_out = self.tran_conv3(decoder2_out)
+
+        decoder3_in = torch.cat((encode_2_out, up_conv_3_out), dim = 1)
+        decoder3_out = self.unet_decoder3(decoder3_in)
+        
+        up_conv_4_out = self.tran_conv4(decoder3_out)
+
+        decoder4_in = torch.cat((encode_1_out, up_conv_4_out), dim = 1)
+        decoder4_out = self.unet_decoder4(decoder4_in)
+
+        return decoder4_out
                                     
-
-
 if __name__ == '__main__':
-    conv_group_parameters = {'input_channel': [1, 4, 8, 16, 32],
-                             'middle_channel': [4, 8, 16, 32, 64],
-                             'output_channel': [4, 8, 16, 32, 64],
-                             'kernel_size': 9,
-                             'padding': 4,
-                             'stride': 1,
-                             'padding_mode': 'zeros'}
+    encoder_parameters = {'input_channel': [1, 4, 8, 16, 32],
+                          'middle_channel': [4, 8, 16, 32, 64],
+                          'output_channel': [4, 8, 16, 32, 64],
+                          'kernel_size': 9,
+                          'padding': 4,
+                          'stride': 1,
+                          'padding_mode': 'zeros'}
     pool_parameters = {'kernel_size': 8,
                        'stride': 2,
                        'padding': 3}
+    tran_conv_parameters = {'input_channel': [64, 32, 16, 8],
+                            'output_channel': [64, 32, 16, 8],
+                            'kernel_size': 8,
+                            'stride': 2,
+                            'padding': 3}
+    decoder_parameters = {'input_channel': [96, 48, 24, 12],
+                          'middle_channel': [32, 16, 8, 4],
+                          'output_channel': [32, 16, 8, 4],
+                          'kernel_size': 3,
+                          'stride': 1,
+                          'padding': 1,
+                          'padding_mode': 'zeros'}
+
 
     test_input = torch.randn(1, 1, 2000)        
-    test_model = unet_1d_model(conv_group_parameters,
+    test_model = unet_1d_model(encoder_parameters,
                                pool_parameters,
-                               None)
+                               decoder_parameters,
+                               tran_conv_parameters)
     test_output = test_model.forward(test_input)
     print('size of test_output : {0}'.format(test_output.size()))
 
