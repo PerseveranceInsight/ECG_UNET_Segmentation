@@ -68,9 +68,16 @@ class ECG_SEG_Dataset(Dataset):
         # print('stride_start_ind : {0}'.format(stride_start_ind))
         signals = signals[stride_start_ind:stride_start_ind + span_len]
         lead_cons = lead_cons[stride_start_ind:stride_start_ind + span_len]
-        # print('Shape of signals : {0}'.format(signals.shape))
-        # print('Shape of lead_cons : {0}'.format(lead_cons.shape))
-        return signals, lead_cons
+        len_signals = signals.size()[0]
+        neg_label = torch.ones(1, len_signals)
+        pos_label = torch.ones(1, len_signals)
+        lead_labels = torch.ones(4, len_signals)
+        lead_labels[0, :] = torch.where(lead_cons == 0, pos_label, neg_label)
+        lead_labels[1, :] = torch.where(lead_cons == 1, pos_label, neg_label)
+        lead_labels[2, :] = torch.where(lead_cons == 2, pos_label, neg_label)
+        lead_labels[3, :] = torch.where(lead_cons == 3, pos_label, neg_label)
+        signals = signals.view(1, len_signals)
+        return signals, lead_labels
 
     def __len__(self):
         return len(self.signals)
@@ -268,8 +275,6 @@ if __name__ == '__main__':
             ecg_dataset = ECG_SEG_Dataset(preprocess_dataset_path=sys.argv[1],
                                           mode = 'valid')
             sig, lead_ann = ecg_dataset.__getitem__(index = 1)
-            print('ecg_dataset : {0}'.format(ecg_dataset.__len__()))
-            print('Shape of sig : {0}'.format(sig.size()))
         #     sig_npy = sig.numpy()
         #     lead_ann_npy = lead_ann.numpy()
         #     np.save('./sig_npy.npy', sig_npy)

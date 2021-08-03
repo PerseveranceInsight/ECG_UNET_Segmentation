@@ -109,6 +109,7 @@ class unet_1d_model(nn.Module):
 
     
     def forward(self, input):
+        num_batches = input.size()[0]
         encode_1_out = self.unet_encoder1(input)
         pool_1_out = self.max_pool1d_1(encode_1_out)
         encode_2_out = self.unet_encoder2(pool_1_out)
@@ -139,7 +140,11 @@ class unet_1d_model(nn.Module):
         decoder4_in = torch.cat((encode_1_out, up_conv_4_out), dim = 1)
         decoder4_out = self.unet_decoder4(decoder4_in)
 
-        return decoder4_out
+        pred_seg_out = torch.argmax(decoder4_out, dim=1)
+        pred_seg_out = torch.reshape(pred_seg_out,
+                                     (num_batches, 1, 2000))
+
+        return pred_seg_out
                                     
 if __name__ == '__main__':
     encoder_parameters = {'input_channel': [1, 4, 8, 16, 32],
@@ -166,7 +171,7 @@ if __name__ == '__main__':
                           'padding_mode': 'zeros'}
 
 
-    test_input = torch.randn(1, 1, 2000)        
+    test_input = torch.randn(32, 1, 2000)        
     test_model = unet_1d_model(encoder_parameters,
                                pool_parameters,
                                decoder_parameters,
