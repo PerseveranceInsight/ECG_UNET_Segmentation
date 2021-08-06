@@ -18,6 +18,38 @@ def get_device(quantized_switch=False):
     else:
         return 'cpu'
 
+def valid(valid_set, model, device):
+    model.eval()
+    valid_loss = 0
+    for signal, lead_label in valid_set:
+        signal, lead_label = signal.to(device), lead_label.to(device)
+        with torch.no_grad():
+            pred_label = model(signal)
+            loss = model.cal_loss(pred_label, lead_label)
+        valid_loss += loss.detach().cpu().item() 
+    valid_loss /= len(valid_set)
+    return valid_loss
+
+def pred(data_set, model, device):
+    model.eval()
+    softmax = nn.Softmax(dim=1)
+    signal, lead_label = data_set.__getitem__(index = 10)
+    signal_npy = signal.numpy()
+    signal = signal.view((1, 1, 2000))
+    signal = signal.to(device)
+    pred_label = model.forward(signal)
+    pred_label = softmax(pred_label)
+    pred_label = torch.argmax(pred_label, dim=1)
+    
+    pred_label_npy = pred_label.cpu().detach().numpy()
+    lead_label_npy = lead_label.numpy()
+    np.save('./signal_npy.npy', signal_npy)
+    np.save('./pred_label_npy.npy', pred_label_npy)
+    np.save('./lead_label_npy.npy', lead_label_npy)
+    print(np.where(pred_label_npy != lead_label_npy))
+    print(np.where(pred_label_npy != lead_label_npy)[1].shape)
+
+
 def train(train_set, valid_set, model, train_config, device):
     n_epochs = train_config['n_epochs']
     optimizer = getattr(torch.optim, train_config['optimizer'])(model.parameters(),
@@ -39,14 +71,30 @@ def train(train_set, valid_set, model, train_config, device):
             optimizer.zero_grad()
             signals, lead_label = signals.to(device), lead_label.to(device)
             pre_label = model(signals)
-            print('Size of signals : {0}'.format(signals.size()))
-            print('Size of lead_label : {0}'.format(lead_label.size()))
-            print('Size of pre_label : {0}'.format(pre_label.size()))
+            loss = model.cal_loss(pre_label, lead_label)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss
+            loss_record['train'].append(loss.detach().cpu().item())
+        running_loss /= len(train_set)
+        loss_record['running_loss'].append(running_loss.detach().cpu().item())
+        loss_record['running_epoch'].append(epoch)
+        valid_loss = valid(valid_set, model, device)
+        # print('valid_loss : {0}'.format(valid_loss))
+        if valid_loss < min_loss:
+            min_loss = valid_loss
+            print('Saving model (epoch {:4d}, valid_loss : {:.4f})'.format(epoch+1, min_loss))
+            torch.save(model.state_dict(), train_config['save_path'])
+            early_stop_cnt = 0
+        else:
+            early_stop_cnt += 1
         epoch += 1
+        if early_stop_cnt > train_config['early_stop']:
+            break
 
 def main():
-    load_model = False
-    retrain = True
+    load_model = True
+    retrain = False
     quantized_switch = False
 
     model_name = './models/ecg_seg_model.pt'
@@ -77,10 +125,10 @@ def main():
                           'stride': 1,
                           'padding': 1,
                           'padding_mode': 'zeros'}
-    train_config = { 'n_epochs': 1,
-                     'batch_size': 1,
+    train_config = { 'n_epochs': 1000,
+                     'batch_size': batch_size,
                      'optimizer': 'Adagrad',
-                     'optim_hparas': { 'lr': 0.005,
+                     'optim_hparas': { 'lr': 0.015,
                                        'lr_decay': 0.001},
                      'early_stop': 200,
                      'save_path': model_name}
@@ -101,13 +149,17 @@ def main():
 
     train_set = DataLoader(train_dataset, batch_size, shuffle = True, drop_last = False,
                            num_workers = 0, pin_memory = True)
-    valid_set = DataLoader(valid_dataset, batch_size, shuffle = True, drop_last = False,
+    valid_set = DataLoader(valid_dataset, 1, shuffle = True, drop_last = False,
                            num_workers = 0, pin_memory = True)
-    test_set = DataLoader(valid_dataset, batch_size, shuffle = True, drop_last= False,
+    test_set = DataLoader(test_dataset, 1, shuffle = True, drop_last= False,
                           num_workers = 0, pin_memory = True)
    
     if load_model:
-        print('Not support temporarily')
+        ecg_unet_model = model.unet_1d_model(encoder_parameters = encoder_parameters,
+                                             pool_parameters = pool_parameters,
+                                             decoder_parameters = decoder_parameters,
+                                             tran_conv_parameters = tran_conv_parameters).to(device)
+        ecg_unet_model.load_state_dict(torch.load(train_config['save_path']))
     else:
         ecg_unet_model = model.unet_1d_model(encoder_parameters = encoder_parameters,
                                              pool_parameters = pool_parameters,
@@ -122,7 +174,9 @@ def main():
                   train_config = train_config,
                   device = device)
         else:
-            print('Nout supports')
+            pred(data_set = test_dataset,
+                 model = ecg_unet_model,
+                 device = device)
     else:
         print('Model does\' exist')
 

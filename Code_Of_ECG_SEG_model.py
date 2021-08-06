@@ -106,6 +106,7 @@ class unet_1d_model(nn.Module):
                                                 group_idx = 2)
         self.unet_decoder4 = unet_1d_conv_group(group_parameters = decoder_parameters,
                                                 group_idx = 3)
+        self.criterion = nn.CrossEntropyLoss()
 
     
     def forward(self, input):
@@ -139,12 +140,10 @@ class unet_1d_model(nn.Module):
 
         decoder4_in = torch.cat((encode_1_out, up_conv_4_out), dim = 1)
         decoder4_out = self.unet_decoder4(decoder4_in)
+        return decoder4_out
 
-        pred_seg_out = torch.argmax(decoder4_out, dim=1)
-        pred_seg_out = torch.reshape(pred_seg_out,
-                                     (num_batches, 1, 2000))
-
-        return pred_seg_out
+    def cal_loss(self, pre_label, tar_label):
+        return self.criterion(pre_label, tar_label)
                                     
 if __name__ == '__main__':
     encoder_parameters = {'input_channel': [1, 4, 8, 16, 32],

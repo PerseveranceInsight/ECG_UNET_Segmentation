@@ -12,6 +12,7 @@ class ECG_SEG_Dataset(Dataset):
     def __init__(self, 
                  preprocess_dataset_path,
                  mode='train'):
+        random.seed(datetime.time())
         signals_con_path = preprocess_dataset_path + 'signals_con.npy'
         lead_cons_path = preprocess_dataset_path + 'lead_anns_con.npy'
         signals = np.load(signals_con_path)
@@ -53,7 +54,6 @@ class ECG_SEG_Dataset(Dataset):
         self.lead_cons = torch.LongTensor(lead_cons)
 
     def __getitem__(self, index):
-        random.seed(datetime.time())
         sample_freq = 500 # 500 Hz
         sample_span = 4 # 4 sec
         total_sample_span = 6
@@ -69,15 +69,15 @@ class ECG_SEG_Dataset(Dataset):
         signals = signals[stride_start_ind:stride_start_ind + span_len]
         lead_cons = lead_cons[stride_start_ind:stride_start_ind + span_len]
         len_signals = signals.size()[0]
-        neg_label = torch.ones(1, len_signals)
-        pos_label = torch.ones(1, len_signals)
-        lead_labels = torch.ones(4, len_signals)
-        lead_labels[0, :] = torch.where(lead_cons == 0, pos_label, neg_label)
-        lead_labels[1, :] = torch.where(lead_cons == 1, pos_label, neg_label)
-        lead_labels[2, :] = torch.where(lead_cons == 2, pos_label, neg_label)
-        lead_labels[3, :] = torch.where(lead_cons == 3, pos_label, neg_label)
+        # neg_label = torch.zeros((1, len_signals), dtype=int)
+        # pos_label = torch.ones((1, len_signals), dtype=int)
+        # lead_labels = torch.zeros((4, len_signals), dtype=int)
+        # lead_labels[0, :] = torch.where(lead_cons == 0, pos_label, neg_label)
+        # lead_labels[1, :] = torch.where(lead_cons == 1, pos_label, neg_label)
+        # lead_labels[2, :] = torch.where(lead_cons == 2, pos_label, neg_label)
+        # lead_labels[3, :] = torch.where(lead_cons == 3, pos_label, neg_label)
         signals = signals.view(1, len_signals)
-        return signals, lead_labels
+        return signals, lead_cons
 
     def __len__(self):
         return len(self.signals)
@@ -274,7 +274,11 @@ if __name__ == '__main__':
         elif len(sys.argv) == 2:
             ecg_dataset = ECG_SEG_Dataset(preprocess_dataset_path=sys.argv[1],
                                           mode = 'valid')
-            sig, lead_ann = ecg_dataset.__getitem__(index = 1)
+            signal, lead_label = ecg_dataset.__getitem__(index = 1)
+            print('signal : {0}'.format(signal.size()))
+            print('lean_label : {0}'.format(lead_label.size()))
+            signal_npy = signal.cpu().detach().numpy()
+            lead_label_npy = lead_label.cpu().detach().numpy()
         #     sig_npy = sig.numpy()
         #     lead_ann_npy = lead_ann.numpy()
         #     np.save('./sig_npy.npy', sig_npy)
